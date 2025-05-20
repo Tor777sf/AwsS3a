@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Subir Archivos a AWS S3</title>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1039.0.min.js"></script>
+</head>
+<body>
+    <h1>Subir archivos a S3</h1>
+    <input type="file" id="fileInput">
+    <button onclick="uploadFile()">Subir Archivo</button>
+
+    <script>
+        AWS.config.update({
+            region: 'us-east-2',
+            credentials: new AWS.CognitoIdentityCredentials({
+                IdentityPoolId: 'us-east-2:7cfbef35-86b2-449c-937d-1b3f68442c54'
+            })
+        });
+
+        function uploadFile() {
+            var file = document.getElementById('fileInput').files[0];
+            var s3 = new AWS.S3();
+            var params = {
+                Bucket: 'archivos-seguros-usuarios',
+                Key: file.name,
+                Body: file
+            };
+            s3.upload(params, function(err, data) {
+                if (err) console.log("Error", err);
+                else console.log("Archivo subido!", data.Location);
+            });
+        }
+    </script>
+</body>
+</html>
