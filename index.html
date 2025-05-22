@@ -10,25 +10,58 @@
     <button onclick="uploadFile()">Subir Archivo</button>
 
     <script>
-        AWS.config.update({
-            region: 'us-east-2',
-            credentials: new AWS.CognitoIdentityCredentials({
-                IdentityPoolId: 'us-east-2:7cfbef35-86b2-449c-937d-1b3f68442c54'
-            })
-        });
+        try {
+            AWS.config.update({
+                region: 'us-east-2',
+                credentials: new AWS.CognitoIdentityCredentials({
+                    IdentityPoolId: 'us-east-2:7cfbef35-86b2-449c-937d-1b3f68442c55'
+                })
+            });
+
+            AWS.config.credentials.get(function(err) {
+                if (err) {
+                    console.error("Error obteniendo credenciales de Cognito:", err);
+                    alert("Error en la autenticación con AWS Cognito: " + err.message);
+                } else {
+                    console.log("Credenciales obtenidas:", AWS.config.credentials);
+                    alert("Conexión con AWS Cognito exitosa.");
+                }
+            });
+
+        } catch (error) {
+            console.error("Error en la configuración de AWS:", error);
+            alert("Error en la configuración de AWS: " + error.message);
+        }
 
         function uploadFile() {
-            var file = document.getElementById('fileInput').files[0];
-            var s3 = new AWS.S3();
-            var params = {
-                Bucket: 'archivos-seguros-usuarios',
-                Key: file.name,
-                Body: file
-            };
-            s3.upload(params, function(err, data) {
-                if (err) console.log("Error", err);
-                else console.log("Archivo subido!", data.Location);
-            });
+            try {
+                var file = document.getElementById('fileInput').files[0];
+                if (!file) {
+                    alert("Por favor, selecciona un archivo antes de subir.");
+                    return;
+                }
+
+                var s3 = new AWS.S3();
+                var params = {
+                    Bucket: 'archivos-seguros-usuarios',
+                    Key: file.name,
+                    Body: file
+                };
+
+                s3.upload(params, function(err, data) {
+                    if (err) {
+                        console.error("Error al subir archivo:", err);
+                        alert("Error al subir archivo a S3: " + err.message);
+                    } else {
+                        console.log("Archivo subido correctamente!", data.Location);
+                        alert("Archivo subido a S3: " + data.Location);
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error en la subida de archivos:", error);
+                alert("Error inesperado: " + error.message);
+            }
         }
     </script>
 </body>
