@@ -6,38 +6,56 @@
 </head>
 <body>
     <h1>Registro de Usuario</h1>
-    <input type="text" id="username" placeholder="Nombre de usuario">
+    <input type="text" id="username" placeholder="Email">
     <input type="password" id="password" placeholder="Contraseña">
     <button onclick="registerUser()">Registrarse</button>
+    
+    <h3>Estado:</h3>
+    <p id="statusMessage"></p>
 
     <script>
         var cognitoUserPoolId = "us-east-2_U6vQT05NV";
         var clientId = "6f72bgsojk3preqk9ruc8nnsbv";
 
         function registerUser() {
-            var AmazonCognitoIdentity = window.AmazonCognitoIdentity;
-            var userPool = new AmazonCognitoIdentity.CognitoUserPool({
-                UserPoolId: cognitoUserPoolId,
-                ClientId: clientId
-            });
-
-            var attributeList = [];
-            var dataEmail = {
-                Name: "email",
-                Value: document.getElementById('username').value
-            };
-            var attributeEmail = new AmazonCognitoIdentity.CognitoUserAttribute(dataEmail);
-            attributeList.push(attributeEmail);
-
-            userPool.signUp(document.getElementById('username').value, document.getElementById('password').value, attributeList, null, function(err, result) {
-                if (err) {
-                    alert("Error al registrar usuario: " + err.message);
-                    console.error(err);
+            try {
+                var email = document.getElementById('username').value;
+                var password = document.getElementById('password').value;
+                
+                if (!email || !password) {
+                    alert("Por favor ingresa un email y una contraseña.");
+                    document.getElementById('statusMessage').innerText = "Error: Campos vacíos.";
                     return;
                 }
-                alert("Registro exitoso! Verifica tu email.");
-                console.log("Usuario creado:", result);
-            });
+
+                var AmazonCognitoIdentity = window.AmazonCognitoIdentity;
+                var userPool = new AmazonCognitoIdentity.CognitoUserPool({
+                    UserPoolId: cognitoUserPoolId,
+                    ClientId: clientId
+                });
+
+                var attributeList = [];
+                var dataEmail = { Name: "email", Value: email };
+                var attributeEmail = new AmazonCognitoIdentity.CognitoUserAttribute(dataEmail);
+                attributeList.push(attributeEmail);
+
+                userPool.signUp(email, password, attributeList, null, function(err, result) {
+                    if (err) {
+                        alert("Error al registrar usuario: " + err.message);
+                        document.getElementById('statusMessage').innerText = "Error: " + err.message;
+                        console.error("Error en Cognito:", err);
+                        return;
+                    }
+                    alert("Registro exitoso! Verifica tu email.");
+                    document.getElementById('statusMessage').innerText = "Registro exitoso! Revisa tu correo.";
+                    console.log("Usuario creado:", result);
+                });
+
+            } catch (error) {
+                alert("Error inesperado: " + error.message);
+                document.getElementById('statusMessage').innerText = "Error inesperado: " + error.message;
+                console.error("Error general:", error);
+            }
         }
     </script>
 </body>
