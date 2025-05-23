@@ -1,67 +1,43 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>Subir Archivos a AWS S3</title>
+    <title>Registro en AWS Cognito</title>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1039.0.min.js"></script>
 </head>
 <body>
-    <h1>Subir archivos a S3</h1>
-    <input type="file" id="fileInput">
-    <button onclick="uploadFile()">Subir Archivo</button>
+    <h1>Registro de Usuario</h1>
+    <input type="text" id="username" placeholder="Nombre de usuario">
+    <input type="password" id="password" placeholder="Contraseña">
+    <button onclick="registerUser()">Registrarse</button>
 
     <script>
-        try {
-            AWS.config.update({
-                region: 'us-east-2',
-                credentials: new AWS.CognitoIdentityCredentials({
-                    IdentityPoolId: 'us-east-2:7cfbef35-86b2-449c-937d-1b3f68442c54'
-                })
+        var cognitoUserPoolId = "TU_USER_POOL_ID";
+        var clientId = "TU_APP_CLIENT_ID";
+
+        function registerUser() {
+            var AmazonCognitoIdentity = window.AmazonCognitoIdentity;
+            var userPool = new AmazonCognitoIdentity.CognitoUserPool({
+                UserPoolId: cognitoUserPoolId,
+                ClientId: clientId
             });
 
-            AWS.config.credentials.get(function(err) {
+            var attributeList = [];
+            var dataEmail = {
+                Name: "email",
+                Value: document.getElementById('username').value
+            };
+            var attributeEmail = new AmazonCognitoIdentity.CognitoUserAttribute(dataEmail);
+            attributeList.push(attributeEmail);
+
+            userPool.signUp(document.getElementById('username').value, document.getElementById('password').value, attributeList, null, function(err, result) {
                 if (err) {
-                    console.error("Error obteniendo credenciales de Cognito:", err);
-                    alert("Error en la autenticación con AWS Cognito: " + err.message);
-                } else {
-                    console.log("Credenciales obtenidas:", AWS.config.credentials);
-                    alert("Conexión con AWS Cognito exitosa.");
-                }
-            });
-
-        } catch (error) {
-            console.error("Error en la configuración de AWS:", error);
-            alert("Error en la configuración de AWS: " + error.message);
-        }
-
-        function uploadFile() {
-            try {
-                var file = document.getElementById('fileInput').files[0];
-                if (!file) {
-                    alert("Por favor, selecciona un archivo antes de subir.");
+                    alert("Error al registrar usuario: " + err.message);
+                    console.error(err);
                     return;
                 }
-
-                var s3 = new AWS.S3();
-                var params = {
-                    Bucket: 'archivos-seguros-usuarios',
-                    Key: file.name,
-                    Body: file
-                };
-
-                s3.upload(params, function(err, data) {
-                    if (err) {
-                        console.error("Error al subir archivo:", err);
-                        alert("Error al subir archivo a S3: " + err.message);
-                    } else {
-                        console.log("Archivo subido correctamente!", data.Location);
-                        alert("Archivo subido a S3: " + data.Location);
-                    }
-                });
-
-            } catch (error) {
-                console.error("Error en la subida de archivos:", error);
-                alert("Error inesperado: " + error.message);
-            }
+                alert("Registro exitoso! Verifica tu email.");
+                console.log("Usuario creado:", result);
+            });
         }
     </script>
 </body>
