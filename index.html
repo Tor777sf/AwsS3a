@@ -2,18 +2,56 @@
 <html lang="es">
 <head>
     <title>Registro en AWS Cognito</title>
-  <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1039.0.min.js"></script>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1039.0.min.js"></script>
+    <script src="https://unpkg.com/amazon-cognito-identity-js@latest"></script>
+    <style>
+        /* Estilos para la ventana emergente */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            border-radius: 8px;
+            width: 300px;
+            text-align: center;
+        }
+        #modal p {
+            margin: 0;
+        }
+        #modal button {
+            margin-top: 10px;
+            background: #ff4f4f;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            cursor: pointer;
+        }
+        #modal.success {
+            border: 2px solid green;
+            color: green;
+        }
+        #modal.error {
+            border: 2px solid red;
+            color: red;
+        }
+    </style>
 </head>
-  <script src="https://unpkg.com/amazon-cognito-identity-js@latest"></script>      
-
 <body>
     <h1>Registro de Usuario</h1>
     <input type="text" id="username" placeholder="Email">
     <input type="password" id="password" placeholder="Contraseña">
     <button onclick="registerUser()">Registrarse</button>
-    
-    <h3>Estado:</h3>
-    <p id="statusMessage"></p>
+
+    <!-- Ventana emergente para mostrar mensajes -->
+    <div id="modal">
+        <p id="modalMessage"></p>
+        <button onclick="closeModal()">Cerrar</button>
+    </div>
 
     <script>
         var cognitoUserPoolId = "us-east-2_U6vQT05NV";
@@ -25,39 +63,56 @@
                 var password = document.getElementById('password').value;
                 
                 if (!email || !password) {
-                    alert("Por favor ingresa un email y una contraseña.");
-                    document.getElementById('statusMessage').innerText = "Error: Campos vacíos.";
+                    showError("Por favor ingresa un email y una contraseña.");
                     return;
                 }
 
-                var AmazonCognitoIdentity = window.AmazonCognitoIdentity;
+                if (!window.AmazonCognitoIdentity) {
+                    showError("La librería Cognito no se cargó correctamente.");
+                    return;
+                }
+
                 var userPool = new AmazonCognitoIdentity.CognitoUserPool({
                     UserPoolId: cognitoUserPoolId,
                     ClientId: clientId
                 });
 
                 var attributeList = [];
-                var dataEmail = { Name: "email", Value: email };
-                var attributeEmail = new AmazonCognitoIdentity.CognitoUserAttribute(dataEmail);
-                attributeList.push(attributeEmail);
+                attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }));
 
                 userPool.signUp(email, password, attributeList, null, function(err, result) {
                     if (err) {
-                        alert("Error al registrar usuario: " + err.message);
-                        document.getElementById('statusMessage').innerText = "Error: " + err.message;
-                        console.error("Error en Cognito:", err);
+                        showError("Error al registrar usuario: " + err.message);
                         return;
                     }
-                    alert("Registro exitoso! Verifica tu email.");
-                    document.getElementById('statusMessage').innerText = "Registro exitoso! Revisa tu correo.";
+                    showSuccess("Registro exitoso! Verifica tu email.");
                     console.log("Usuario creado:", result);
                 });
 
             } catch (error) {
-                alert("Error inesperado: " + error.message);
-                document.getElementById('statusMessage').innerText = "Error inesperado: " + error.message;
+                showError("Error inesperado: " + error.message);
                 console.error("Error general:", error);
             }
+        }
+
+        function showError(message) {
+            var modal = document.getElementById('modal');
+            modal.classList.add('error');
+            modal.classList.remove('success');
+            document.getElementById('modalMessage').innerText = message;
+            modal.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            var modal = document.getElementById('modal');
+            modal.classList.add('success');
+            modal.classList.remove('error');
+            document.getElementById('modalMessage').innerText = message;
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
         }
     </script>
 </body>
