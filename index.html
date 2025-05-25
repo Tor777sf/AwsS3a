@@ -2,119 +2,56 @@
 <html lang="es">
 <head>
     <title>Registro en AWS Cognito</title>
-    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1039.0.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@latest"></script>
-    
-    <style>
-        /* Estilos para la ventana emergente */
-        #modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #fff;
-            padding: 20px;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            border-radius: 8px;
-            width: 300px;
-            text-align: center;
+    <script src="https://cdn.jsdelivr.net/npm/@aws-sdk/client-cognito-identity-provider@latest"></script>
+    <script>
+        async function registerUser() {
+            try {
+                var email = document.getElementById('username').value;
+                var password = document.getElementById('password').value;
+
+                if (!email || !password) {
+                    showError("Por favor ingresa un email y una contraseña.");
+                    return;
+                }
+
+                const client = new AWS.CognitoIdentityProviderClient({ region: "us-east-2" });
+                const command = new AWS.SignUpCommand({
+                    ClientId: "6f72bgsojk3preqk9ruc8nnsbv",
+                    Username: email,
+                    Password: password,
+                    UserAttributes: [{ Name: "email", Value: email }]
+                });
+
+                const response = await client.send(command);
+                showSuccess("Registro exitoso! Verifica tu email.");
+                console.log("Usuario creado:", response);
+
+            } catch (error) {
+                showError("Error al registrar usuario: " + error.message);
+                console.error("Error en Cognito:", error);
+            }
         }
-        #modal p {
-            margin: 0;
+
+        function showError(message) {
+            alert(message);
+            document.getElementById('statusMessage').innerText = message;
+            document.getElementById('statusMessage').style.color = "red";
         }
-        #modal button {
-            margin-top: 10px;
-            background: #ff4f4f;
-            color: white;
-            padding: 5px 10px;
-            border: none;
-            cursor: pointer;
+
+        function showSuccess(message) {
+            alert(message);
+            document.getElementById('statusMessage').innerText = message;
+            document.getElementById('statusMessage').style.color = "green";
         }
-        #modal.success {
-            border: 2px solid green;
-            color: green;
-        }
-        #modal.error {
-            border: 2px solid red;
-            color: red;
-        }
-    </style>
+    </script>
 </head>
 <body>
     <h1>Registro de Usuario</h1>
     <input type="text" id="username" placeholder="Email">
     <input type="password" id="password" placeholder="Contraseña">
     <button onclick="registerUser()">Registrarse</button>
-
-    <!-- Ventana emergente para mostrar mensajes -->
-    <div id="modal">
-        <p id="modalMessage"></p>
-        <button onclick="closeModal()">Cerrar</button>
-    </div>
-
-    <script>
-        var cognitoUserPoolId = "us-east-2_U6vQT05NV";
-        var clientId = "6f72bgsojk3preqk9ruc8nnsbv";
-
-        function registerUser() {
-            try {
-                var email = document.getElementById('username').value;
-                var password = document.getElementById('password').value;
-                
-                if (!email || !password) {
-                    showError("Por favor ingresa un email y una contraseña.");
-                    return;
-                }
-
-                if (!window.AmazonCognitoIdentity) {
-                    showError("La librería Cognito no se cargó correctamente.");
-                    return;
-                }
-
-                var userPool = new AmazonCognitoIdentity.CognitoUserPool({
-                    UserPoolId: cognitoUserPoolId,
-                    ClientId: clientId
-                });
-
-                var attributeList = [];
-                attributeList.push(new AmazonCognitoIdentity.CognitoUserAttribute({ Name: "email", Value: email }));
-
-                userPool.signUp(email, password, attributeList, null, function(err, result) {
-                    if (err) {
-                        showError("Error al registrar usuario: " + err.message);
-                        return;
-                    }
-                    showSuccess("Registro exitoso! Verifica tu email.");
-                    console.log("Usuario creado:", result);
-                });
-
-            } catch (error) {
-                showError("Error inesperado: " + error.message);
-                console.error("Error general:", error);
-            }
-        }
-
-        function showError(message) {
-            var modal = document.getElementById('modal');
-            modal.classList.add('error');
-            modal.classList.remove('success');
-            document.getElementById('modalMessage').innerText = message;
-            modal.style.display = 'block';
-        }
-
-        function showSuccess(message) {
-            var modal = document.getElementById('modal');
-            modal.classList.add('success');
-            modal.classList.remove('error');
-            document.getElementById('modalMessage').innerText = message;
-            modal.style.display = 'block';
-        }
-
-        function closeModal() {
-            document.getElementById('modal').style.display = 'none';
-        }
-    </script>
+    
+    <h3>Estado:</h3>
+    <p id="statusMessage"></p>
 </body>
 </html>
