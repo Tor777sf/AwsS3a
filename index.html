@@ -1,57 +1,121 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>Registro en AWS Cognito</title>
-    <script src="https://cdn.jsdelivr.net/npm/@aws-sdk/client-cognito-identity-provider@latest"></script>
-    <script>
-        async function registerUser() {
-            try {
-                var email = document.getElementById('username').value;
-                var password = document.getElementById('password').value;
-
-                if (!email || !password) {
-                    showError("Por favor ingresa un email y una contraseña.");
-                    return;
-                }
-
-                const client = new AWS.CognitoIdentityProviderClient({ region: "us-east-2" });
-                const command = new AWS.SignUpCommand({
-                    ClientId: "6f72bgsojk3preqk9ruc8nnsbv",
-                    Username: email,
-                    Password: password,
-                    UserAttributes: [{ Name: "email", Value: email }]
-                });
-
-                const response = await client.send(command);
-                showSuccess("Registro exitoso! Verifica tu email.");
-                console.log("Usuario creado:", response);
-
-            } catch (error) {
-                showError("Error al registrar usuario: " + error.message);
-                console.error("Error en Cognito:", error);
-            }
-        }
-
-        function showError(message) {
-            alert(message);
-            document.getElementById('statusMessage').innerText = message;
-            document.getElementById('statusMessage').style.color = "red";
-        }
-
-        function showSuccess(message) {
-            alert(message);
-            document.getElementById('statusMessage').innerText = message;
-            document.getElementById('statusMessage').style.color = "green";
-        }
-    </script>
+    <title>Login automático con AWS Cognito (PKCE)</title>
+    <meta charset="UTF-8" />
 </head>
 <body>
-    <h1>Registro de Usuario</h1>
-    <input type="text" id="username" placeholder="Email">
-    <input type="password" id="password" placeholder="Contraseña">
-    <button onclick="registerUser()">Registrarse</button>
-    
-    <h3>Estado:</h3>
-    <p id="statusMessage"></p>
+    <!-- Mensajes de estado -->
+    <div id="estado"></div>
+
+    <script>
+        // ========================
+        // CONFIGURACIÓN GLOBAL
+        // ========================
+        const clientId = "TU_CLIENT_ID";
+        const cognitoDomain = "https://tuapp.auth.us-east-2.amazoncognito.com";
+        const redirectUri = "https://tuapp.com/callback";
+        const scope = "openid profile email";
+        const tokenEndpoint = `${cognitoDomain}/oauth2/token`;
+
+        // ========================
+        // FUNCIONES PKCE
+        // ========================
+        function generateCodeVerifier() {
+            const array = new Uint8Array(32);
+            crypto.getRandomValues(array);
+            return btoa(String.fromCharCode(...array))
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=+$/, "");
+        }
+
+        async function generateCodeChallenge(verifier) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(verifier);
+            const digest = await crypto.subtle.digest("SHA-256", data);
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(digest)))
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=+$/, "");
+            return base64;
+        }
+
+        // ========================
+        // DETECCIÓN DE CALLBACK
+        // ========================
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+
+        if (code) {
+            document.getElementById("estado").innerText = "Procesando autenticación...";
+            handleCallback(code);
+        } else {
+            // ========================
+            // REDIRECCIÓN AUTOMÁTICA (APP PRINCIPAL)
+            // ========================
+            document.getElementById("estado").innerText = "Redirigiendo al inicio de sesión...";
+
+            (async () => {
+                try {
+                    const verifier = generateCodeVerifier();
+                    const challenge = await generateCodeChallenge(verifier);
+                    sessionStorage.setItem("code_verifier", verifier);
+
+                    const loginUrl = `${cognitoDomain}/login?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&code_challenge=${challenge}&code_challenge_method=S256`;
+
+                    window.location.href = loginUrl;
+                } catch (err) {
+                    console.error("Error al preparar redirección:", err);
+                    alert("Ocurrió un error al redirigir al login: " + err.message);
+                }
+            })();
+        }
+
+        // ========================
+        // CALLBACK: Intercambio de code por tokens
+        // ========================
+        async function handleCallback(code) {
+            const codeVerifier = sessionStorage.getItem("code_verifier");
+
+            const body = new URLSearchParams({
+                grant_type: "authorization_code",
+                client_id: clientId,
+                code: code,
+                redirect_uri: redirectUri,
+                code_verifier: codeVerifier
+            });
+
+            try {
+                const response = await fetch(tokenEndpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: body
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.id_token) {
+                    document.getElementById("estado").innerHTML = `
+                        <h2>¡Autenticación exitosa!</h2>
+                        <p><strong>ID Token:</strong> ${data.id_token}</p>
+                        <p><strong>Access Token:</strong> ${data.access_token}</p>
+                    `;
+                    console.log("Tokens recibidos:", data);
+                } else {
+                    console.error("Respuesta de Cognito:", data);
+                    alert("Error de autenticación: " + (data.error_description || JSON.stringify(data)));
+                    document.getElementById("estado").innerText = "No se pudieron obtener los tokens.";
+                }
+
+            } catch (error) {
+                console.error("Error al contactar Cognito:", error);
+                alert("Ocurrió un error al intercambiar el código: " + error.message);
+                document.getElementById("estado").innerText = "Error técnico en el proceso de autenticación.";
+            }
+        }
+    </script>
 </body>
 </html>
