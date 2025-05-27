@@ -20,7 +20,8 @@
     // INTERCAMBIO DE CÓDIGO POR TOKENS
     // ========================
     async function intercambiarCodePorTokens(code) {
-      const codeVerifier = sessionStorage.getItem("code_verifier");
+      //const codeVerifier = sessionStorage.getItem("code_verifier");
+      const codeVerifier = localStorage.getItem("code_verifier");
       const body = new URLSearchParams({
         grant_type: "authorization_code",
         client_id: clientId,
