@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Callback AWS Cognito</title>
+</head>
+<body>
+  <div id="estado">Procesando autenticación...</div>
+
+  <script>
+    // ========================
+    // CONFIGURACIÓN GLOBAL
+    // ========================
+    const clientId = "61eh7lv1aa15spci69v95qpg2s";
+    const cognitoDomain = "https://us-east-2u6vqt05nv.auth.us-east-2.amazoncognito.com";
+    const redirectUri = "https://tor777sf.github.io/AwsS3a/callback";
+    const tokenEndpoint = `${cognitoDomain}/oauth2/token`;
+
+    // ========================
+    // INTERCAMBIO DE CÓDIGO POR TOKENS
+    // ========================
+    async function intercambiarCodePorTokens(code) {
+      const codeVerifier = sessionStorage.getItem("code_verifier");
+      const body = new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        code: code,
+        redirect_uri: redirectUri,
+        code_verifier: codeVerifier
+      });
+
+      try {
+        const response = await fetch(tokenEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: body
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.id_token) {
+          document.getElementById("estado").innerHTML = `
+            <h2>¡Autenticación exitosa!</h2>
+            <p><strong>ID Token:</strong> ${data.id_token}</p>
+            <p><strong>Access Token:</strong> ${data.access_token}</p>
+          `;
+          console.log("Tokens recibidos:", data);
+        } else {
+          console.error("Respuesta de Cognito:", data);
+          document.getElementById("estado").innerText = "Error de autenticación: " + (data.error_description || JSON.stringify(data));
+        }
+
+      } catch (error) {
+        console.error("Error en la solicitud:", error);
+        document.getElementById("estado").innerText = "Error técnico: " + error.message;
+      }
+    }
+
+    // ========================
+    // DETECTAR CÓDIGO EN URL
+    // ========================
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+
+    if (code) {
+      intercambiarCodePorTokens(code);
+    } else {
+      document.getElementById("estado").innerText = "No se encontró código de autorización en la URL.";
+    }
+  </script>
+</body>
+</html>
