@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Callback AWS Cognito - Subir y Ver Archivos</title>
+  <style>
+    /* Estilo básico para los elementos */
+    #estado, #fileList { margin-top: 20px; }
+    #fileList { list-style-type: none; padding: 0; }
+    li { margin-bottom: 10px; }
+    .progress-bar { width: 100%; height: 20px; background-color: #ddd; margin-top: 10px; }
+    .progress { height: 100%; background-color: #4caf50; width: 0; }
+  </style>
+</head>
+<body>
+  <div id="estado">Procesando autenticación...</div>
+
+  <!-- Formulario para subir archivo -->
+  <h2>Subir un archivo</h2>
+  <input type="file" id="fileInput" />
+  <button id="uploadBtn">Subir archivo</button>
+  <div class="progress-bar" id="progressContainer" style="display: none;">
+    <div class="progress" id="progressBar"></div>
+  </div>
+
+  <!-- Lista de archivos -->
+  <h3>Archivos en tu carpeta:</h3>
+  <ul id="fileList"></ul>
+
+  <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1365.0.min.js"></script>
+  <script>
+    // ===========================
+    // CONFIGURACIÓN GLOBAL
+    // ===========================
+    const config = {
+      clientId: "TU_CLIENT_ID",  // Reemplaza con tu clientId
+      cognitoDomain: "https://TU_DOMINIO_COGNITO",  // Reemplaza con tu dominio
+      redirectUri: "https://TU_URL_DE_REDIRECCION",  // Reemplaza con tu URL de redirección
+      tokenEndpoint: `${config.cognitoDomain}/oauth2/token`,
+      identityPoolId: "TU_IDENTITY_POOL_ID",  // Reemplaza con tu Identity Pool ID
+      userPoolId: "TU_USER_POOL_ID",  // Reemplaza con tu User Pool ID
+      bucketName: "TU_BUCKET"  // Reemplaza con el nombre de tu bucket S3
+    };
+
+    // ===========================
+    // INTERCAMBIO DE CÓDIGO POR TOKENS
+    // ===========================
+    async function intercambiarCodePorTokens(code) {
+      const codeVerifier = localStorage.getItem("code_verifier");
+      const body = new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: config.clientId,
+        code: code,
+        redirect_uri: config.redirectUri,
+        code_verifier: codeVerifier
+      });
+
+      try {
+        const response = await fetch(config.tokenEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: body
+        });
+
+        const data = await response.json();
+        if (response.ok && data.id_token) {
+          mostrarEstado("¡Autenticación exitosa!", `
+            <p><strong>ID Token:</strong> ${data.id_token}</p>
+            <p><strong>Access Token:</strong> ${data.access_token}</p>
+          `);
+          configurarAWS(data.id_token);
+        } else {
+          throw new Error(data.error_description || JSON.stringify(data));
+        }
+      } catch (error) {
+        mostrarEstado("Error de autenticación", error.message);
+      }
+    }
+
+    // ===========================
+    // CONFIGURACIÓN DE AWS
+    // ===========================
+    function configurarAWS(idToken) {
+      const userSub = getUserSub(idToken);
+      if (!userSub) return mostrarEstado("Error", "No se pudo obtener el sub del ID Token.");
+
+      // Configuración de AWS SDK
+      AWS.config.update({
+        region: 'us-east-2',
+        credentials: new AWS.CognitoIdentityCredentials({
+          IdentityPoolId: config.identityPoolId,
+          Logins: {
+            [`cognito-idp.us-east-2.amazonaws.com/${config.userPoolId}`]: idToken
+          }
+        })
+      });
+
+      const s3 = new AWS.S3();
+      obtenerArchivos(s3, userSub);
+
+      // Subir archivo
+      document.getElementById("uploadBtn").addEventListener("click", () => {
+        const file = document.getElementById("fileInput").files[0];
+        if (file) subirArchivo(s3, file, userSub);
+        else alert("Por favor selecciona un archivo.");
+      });
+    }
+
+    // ===========================
+    // SUBIR ARCHIVO A S3
+    // ===========================
+    async function subirArchivo(s3, file, userSub) {
+      const params = {
+        Bucket: config.bucketName,
+        Key: `${userSub}/${file.name}`,
+        Body: file,
+        ContentType: file.type,
+        ACL: 'private'
+      };
+
+      document.getElementById("progressContainer").style.display = 'block';
+      const progressBar = document.getElementById("progressBar");
+
+      try {
+        const upload = s3.upload(params);
+        upload.on('httpUploadProgress', (progress) => {
+          if (progress.total) {
+            const percent = (progress.loaded / progress.total) * 100;
+            progressBar.style.width = `${percent}%`;
+          }
+        });
+
+        await upload.promise();
+        obtenerArchivos(s3, userSub);
+        mostrarEstado("Éxito", "Archivo subido correctamente.");
+      } catch (error) {
+        console.error("Error subiendo archivo:", error);
+        alert("Error subiendo el archivo");
+      } finally {
+        document.getElementById("progressContainer").style.display = 'none';
+      }
+    }
+
+    // ===========================
+    // OBTENER ARCHIVOS DE S3
+    // ===========================
+    async function obtenerArchivos(s3, userSub) {
+      const params = {
+        Bucket: config.bucketName,
+        Prefix: `${userSub}/`
+      };
+
+      try {
+        const data = await s3.listObjectsV2(params).promise();
+        mostrarArchivosEnInterfaz(data.Contents);
+      } catch (error) {
+        console.error('Error al listar archivos:', error);
+      }
+    }
+
+    // Mostrar archivos en la interfaz
+    function mostrarArchivosEnInterfaz(archivos) {
+      const fileList = document.getElementById("fileList");
+      fileList.innerHTML = archivos.length === 0
+        ? '<li>No hay archivos en tu carpeta.</li>'
+        : archivos.map(archivo => `<li>${archivo.Key.split('/').pop()}</li>`).join('');
+    }
+
+    // Mostrar estado de la autenticación
+    function mostrarEstado(titulo, mensaje) {
+      document.getElementById("estado").innerHTML = `
+        <h2>${titulo}</h2>
+        <p>${mensaje}</p>
+      `;
+    }
+
+    // Obtener el 'sub' del ID token
+    function getUserSub(idToken) {
+      try {
+        const decodedToken = JSON.parse(atob(idToken.split('.')[1]));
+        return decodedToken.sub;
+      } catch (error) {
+        console.error("Error al obtener el 'sub' del ID token:", error);
+        return null;
+      }
+    }
+
+    // ===========================
+    // DETECTAR CÓDIGO EN LA URL
+    // ===========================
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (code) intercambiarCodePorTokens(code);
+    else mostrarEstado("Error", "No se encontró código de autorización en la URL.");
+
+  </script>
+</body>
+</html>
