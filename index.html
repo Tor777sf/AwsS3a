@@ -43,8 +43,10 @@
       try {
         const verifier = generateCodeVerifier();
         const challenge = await generateCodeChallenge(verifier);
-        sessionStorage.setItem("code_verifier", verifier);
+        //sessionStorage.setItem("code_verifier", verifier);
+        localStorage.setItem("code_verifier", verifier);
 
+        
         const loginUrl = `${cognitoDomain}/login?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&code_challenge=${challenge}&code_challenge_method=S256`;
 
         alert("Redirigiendo al inicio de sesión...");
