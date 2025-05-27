@@ -1,121 +1,58 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>Login automático con AWS Cognito (PKCE)</title>
-    <meta charset="UTF-8" />
+  <meta charset="UTF-8" />
+  <title>Inicio de sesión con Cognito (PKCE)</title>
 </head>
 <body>
-    <!-- Mensajes de estado -->
-    <div id="estado"></div>
+  <script>
+    // ========================
+    // CONFIGURACIÓN GLOBAL
+    // ========================
+    const clientId = "61eh7lv1aa15spci69v95qpg2s";
+    const cognitoDomain = "https://us-east-2u6vqt05nv.auth.us-east-2.amazoncognito.com";
+    const redirectUri = "https://tor777sf.github.io/AwsS3a/callback";
+    const scope = "openid profile email";
 
-    <script>
-        // ========================
-        // CONFIGURACIÓN GLOBAL
-        // ========================
-        const clientId = "61eh7lv1aa15spci69v95qpg2s";
-        const cognitoDomain = "https://us-east-2u6vqt05nv.auth.us-east-2.amazoncognito.com";
-        const redirectUri = "https://tor777sf.github.io/AwsS3a/callback";
-        const scope = "openid phone email";
-        const tokenEndpoint = `${cognitoDomain}/oauth2/token`;
+    // ========================
+    // FUNCIONES PKCE
+    // ========================
+    function generateCodeVerifier() {
+      const array = new Uint8Array(32);
+      crypto.getRandomValues(array);
+      return btoa(String.fromCharCode(...array))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    }
 
-        // ========================
-        // FUNCIONES PKCE
-        // ========================
-        function generateCodeVerifier() {
-            const array = new Uint8Array(32);
-            crypto.getRandomValues(array);
-            return btoa(String.fromCharCode(...array))
-                .replace(/\+/g, "-")
-                .replace(/\//g, "_")
-                .replace(/=+$/, "");
-        }
+    async function generateCodeChallenge(verifier) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(verifier);
+      const digest = await crypto.subtle.digest("SHA-256", data);
+      return btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+    }
 
-        async function generateCodeChallenge(verifier) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(verifier);
-            const digest = await crypto.subtle.digest("SHA-256", data);
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(digest)))
-                .replace(/\+/g, "-")
-                .replace(/\//g, "_")
-                .replace(/=+$/, "");
-            return base64;
-        }
+    // ========================
+    // INICIAR REDIRECCIÓN
+    // ========================
+    (async () => {
+      try {
+        const verifier = generateCodeVerifier();
+        const challenge = await generateCodeChallenge(verifier);
+        sessionStorage.setItem("code_verifier", verifier);
 
-        // ========================
-        // DETECCIÓN DE CALLBACK
-        // ========================
-        const params = new URLSearchParams(window.location.search);
-        const code = params.get("code");
+        const loginUrl = `${cognitoDomain}/login?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&code_challenge=${challenge}&code_challenge_method=S256`;
 
-        if (code) {
-            document.getElementById("estado").innerText = "Procesando autenticación...";
-            handleCallback(code);
-        } else {
-            // ========================
-            // REDIRECCIÓN AUTOMÁTICA (APP PRINCIPAL)
-            // ========================
-            document.getElementById("estado").innerText = "Redirigiendo al inicio de sesión...";
-
-            (async () => {
-                try {
-                    const verifier = generateCodeVerifier();
-                    const challenge = await generateCodeChallenge(verifier);
-                    sessionStorage.setItem("code_verifier", verifier);
-
-                    const loginUrl = `${cognitoDomain}/login?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&code_challenge=${challenge}&code_challenge_method=S256`;
-
-                    window.location.href = loginUrl;
-                } catch (err) {
-                    console.error("Error al preparar redirección:", err);
-                    alert("Ocurrió un error al redirigir al login: " + err.message);
-                }
-            })();
-        }
-
-        // ========================
-        // CALLBACK: Intercambio de code por tokens
-        // ========================
-        async function handleCallback(code) {
-            const codeVerifier = sessionStorage.getItem("code_verifier");
-
-            const body = new URLSearchParams({
-                grant_type: "authorization_code",
-                client_id: clientId,
-                code: code,
-                redirect_uri: redirectUri,
-                code_verifier: codeVerifier
-            });
-
-            try {
-                const response = await fetch(tokenEndpoint, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded"
-                    },
-                    body: body
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.id_token) {
-                    document.getElementById("estado").innerHTML = `
-                        <h2>¡Autenticación exitosa!</h2>
-                        <p><strong>ID Token:</strong> ${data.id_token}</p>
-                        <p><strong>Access Token:</strong> ${data.access_token}</p>
-                    `;
-                    console.log("Tokens recibidos:", data);
-                } else {
-                    console.error("Respuesta de Cognito:", data);
-                    alert("Error de autenticación: " + (data.error_description || JSON.stringify(data)));
-                    document.getElementById("estado").innerText = "No se pudieron obtener los tokens.";
-                }
-
-            } catch (error) {
-                console.error("Error al contactar Cognito:", error);
-                alert("Ocurrió un error al intercambiar el código: " + error.message);
-                document.getElementById("estado").innerText = "Error técnico en el proceso de autenticación.";
-            }
-        }
-    </script>
+        alert("Redirigiendo al inicio de sesión...");
+        window.location.href = loginUrl;
+      } catch (error) {
+        alert("Error preparando la autenticación: " + error.message);
+      }
+    })();
+  </script>
 </body>
 </html>
