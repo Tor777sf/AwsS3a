@@ -32,15 +32,18 @@
     // ===========================
     // CONFIGURACIÓN GLOBAL
     // ===========================
-    const config = {
-      clientId: "61eh7lv1aa15spci69v95qpg2s",  // Reemplaza con tu clientId
-      cognitoDomain: "https://us-east-2u6vqt05nv.auth.us-east-2.amazoncognito.com",  // Reemplaza con tu dominio
-      redirectUri: "https://tor777sf.github.io/AwsS3a/callback",  // Reemplaza con tu URL de redirección
-      tokenEndpoint: `${config.cognitoDomain}/oauth2/token`,
-      identityPoolId: "us-east-2:7cfbef35-86b2-449c-937d-1b3f68442c54",  // Reemplaza con tu Identity Pool ID
-      userPoolId: "us-east-2_U6vQT05NV",  // Reemplaza con tu User Pool ID
-      bucketName: "archivos-seguros-usuarios"  // Reemplaza con el nombre de tu bucket S3
-    };
+    const cognitoDomain = "https://us-east-2u6vqt05nv.auth.us-east-2.amazoncognito.com";
+
+const config = {
+  clientId: "61eh7lv1aa15spci69v95qpg2s",
+  cognitoDomain: cognitoDomain,
+  redirectUri: "https://tor777sf.github.io/AwsS3a/callback",
+  tokenEndpoint: `${cognitoDomain}/oauth2/token`,
+  identityPoolId: "us-east-2:7cfbef35-86b2-449c-937d-1b3f68442c54",
+  userPoolId: "us-east-2_U6vQT05NV",
+  bucketName: "archivos-seguros-usuarios"
+};
+
 
     // ===========================
     // INTERCAMBIO DE CÓDIGO POR TOKENS
