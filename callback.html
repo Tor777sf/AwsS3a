@@ -69,10 +69,14 @@ const config = {
 
         const data = await response.json();
         if (response.ok && data.id_token) {
-          mostrarEstado("¡Autenticación exitosa!", `
-            <p><strong>ID Token:</strong> ${data.id_token}</p>
-            <p><strong>Access Token:</strong> ${data.access_token}</p>
-          `);
+         // mostrarEstado("¡Autenticación exitosa!", `
+
+          mostrarEstado("¡Autenticación exitosa!", "Ya puedes subir y ver tus archivos.");
+  
+ 
+           // <p><strong>ID Token:</strong> ${data.id_token}</p>
+           // <p><strong>Access Token:</strong> ${data.access_token}</p>
+         // `);
           configurarAWS(data.id_token);
         } else {
           throw new Error(data.error_description || JSON.stringify(data));
